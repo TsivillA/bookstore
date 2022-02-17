@@ -21,12 +21,17 @@ public class SwaggerConstant {
     public static final String LICENSE = "Apache License 2.1.0";
     public static final String LICENSE_URL = "https://www.apache.org/licenses/LICENSE-2.0";
     public static final String SECURE_PATH = "/*/.*";
-    public static final String USER_TAG = "User Service";
-    public static final String BOOK_TAG = "Book Service";
 
-    public static final String RESPONSE_400 = "The request is malformed or invalid";
-    public static final String RESPONSE_404 = "The resource URL was not found on the server";
-    public static final String RESPONSE_500 = "An internal server error occurred";
-    public static final String RESPONSE_403 = "You are not authorized. Please authenticate and try again";
-    public static final String RESPONSE_401 = "You don't have permission to this resource";
+    public static final String USER_TAG = "Users-Controller";
+    public static final String BOOK_TAG = "Books-Controller";
+    public static final String AUTH_TAG = "Auth-Controller";
+
+    public static final String[] PUBLIC_URLS = {
+            "/v2/api-docs",
+            "/swagger-resources/**",
+            "/swagger-ui/**",
+            "/webjars/**",
+            "api/books/getBooks"
+
+    };
 }

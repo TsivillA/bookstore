@@ -15,30 +15,40 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static com.nika.ebook.api.constants.AllowedOrigins.ALLOWED_ORIGIN;
+import static com.nika.ebook.api.constants.ResponseConstants.*;
+import static com.nika.ebook.api.constants.RouteConstants.*;
 import static com.nika.ebook.api.constants.SwaggerConstant.*;
 
 
 @RestController
-@CrossOrigin(origins = "http://localhost:4200/", allowCredentials = "true")
-@RequestMapping("/api/books")
+@CrossOrigin(origins = ALLOWED_ORIGIN, allowCredentials = "true")
+@RequestMapping(BOOKS_API)
 @RequiredArgsConstructor
 @Api(tags = {SwaggerConstant.BOOK_TAG})
 public class BookController {
     private final BookService bookService;
-    private final CategoryRepository categoryRepository;
-    private static String UPLOADED_FOLDER = "src/main/resources/Books/";
+
+    @Value("${book.upload.folder}")
+    private String uploadFolder;
 
 
     @ApiOperation(value = "Create book", notes = "Create and save book in the system")
@@ -49,39 +59,14 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @PostMapping("/create")
+    @PostMapping(CREATE)
     public ResponseEntity<?> createBook(@RequestBody BookCreateRequest bookRequest) {
         if(bookService.existsByName(bookRequest.getName())){
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Book exists!"));
         }
 
-        Book book = new Book(bookRequest.getName(), bookRequest.getAuthor(), bookRequest.getDescription(),
-                bookRequest.getImageUrl(), bookRequest.getReadingUrl(), bookRequest.getPrice());
-
-        Set<String> requestCategory = bookRequest.getCategory();
-        Set<Category> categories = new HashSet<>();
-        requestCategory.forEach(r -> {
-            switch (r) {
-                case "comics":
-                    Category comicsCategory = categoryRepository.findByName(ECategory.COMICS)
-                            .orElseThrow(() -> new RuntimeException("Error: Category 'COMICS' Not Found!"));
-                    categories.add(comicsCategory);
-                    break;
-                case "novels":
-                    Category novelsCategory = categoryRepository.findByName(ECategory.NOVELS)
-                            .orElseThrow(() -> new RuntimeException("Error: Category 'NOVELS' Not Found!"));
-                    categories.add(novelsCategory);
-                    break;
-                default:
-                    Category programmingCategory = categoryRepository.findByName(ECategory.PROGRAMMING)
-                            .orElseThrow(() -> new RuntimeException("Error: Category 'PROGRAMMING' Not Found!"));
-                    categories.add(programmingCategory);
-            }
-        });
-
-        book.setCategory(categories);
-        bookService.save(book);
+        bookService.createBook(bookRequest);
         return ResponseEntity.ok(new MessageResponse("Book CREATED"));
     }
 
@@ -93,7 +78,7 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/getBooks")
+    @GetMapping(GET_BOOKS_ENDPOINT)
     public ResponseEntity<List<Book>> getBooks() {
         return ResponseEntity.ok().body(bookService.findAll());
     }
@@ -106,7 +91,7 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/getBook/{name}")
+    @GetMapping(GET_BOOK_BY_NAME)
     public ResponseEntity<Book> getBookByName(@PathVariable String name) {
         Book book = bookService.getByName(name);
         if (Objects.isNull(book)) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -121,7 +106,7 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/getBook/category/{category}" )
+    @GetMapping(GET_BOOK_BY_CATEGORY )
     public ResponseEntity<List<Book>> getBookByCategory(@PathVariable String category) {
         return ResponseEntity.ok().body(bookService.getBookByCategory(category));
     }
@@ -135,7 +120,7 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @PutMapping("/update/{id}")
+    @PutMapping(UPDATE_BY_ID)
     public ResponseEntity<?> update(@PathVariable long id, @RequestBody BookEditRequest book) {
         bookService.update(id, book);
         return new ResponseEntity<>(null, HttpStatus.NO_CONTENT);
@@ -149,26 +134,42 @@ public class BookController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping(DELETE_BY_ID)
     public ResponseEntity<?> delete(@PathVariable long id) {
         bookService.delete(id);
         return new ResponseEntity<>(null, HttpStatus.NO_CONTENT);
     }
 
-    @PostMapping("/uploadFile/{id}") public ResponseEntity < ? > uploadFile(@RequestPart("file") MultipartFile uploadfile, @PathVariable long id) {
+    @PostMapping(UPLOAD_FILE)
+    public ResponseEntity<?> uploadFile(@RequestPart("file") MultipartFile uploadfile, @PathVariable long id) {
         if (uploadfile.isEmpty()) {
-            return new ResponseEntity("You must select a file!", HttpStatus.OK);
+            return new ResponseEntity<>("You must select a file!", HttpStatus.OK);
         }
         try {
-            bookService.saveUploadedFiles(Arrays.asList(uploadfile), id, UPLOADED_FOLDER);
-
-
+            bookService.saveUploadedFiles(Collections.singletonList(uploadfile), id, uploadFolder);
         } catch (IOException e) {
-            return new ResponseEntity < > (HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-        return new ResponseEntity("Successfully uploaded - " + uploadfile.getOriginalFilename(), new HttpHeaders(), HttpStatus.OK);
+        return new ResponseEntity<>("Successfully uploaded - " + uploadfile.getOriginalFilename(), new HttpHeaders(), HttpStatus.OK);
     }
 
+    @GetMapping(GET_FILE_PDF)
+    public ResponseEntity<InputStreamResource> getBookPdf(@PathVariable String filename){
+        File file = new File(uploadFolder + filename);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "inline;filename=\"" +filename + "\"");
 
+        InputStreamResource resource;
+        try {
+            resource = new InputStreamResource(new FileInputStream(file));
+        } catch (FileNotFoundException fileNotFoundException) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
 
+        return ResponseEntity.ok()
+                .headers(headers)
+                .contentLength(file.length())
+                .contentType(MediaType.parseMediaType("application/pdf"))
+                .body(resource);
+    }
 }

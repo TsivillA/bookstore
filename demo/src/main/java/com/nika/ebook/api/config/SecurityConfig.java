@@ -16,6 +16,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import static com.nika.ebook.api.constants.RoleConstants.ROLE_ADMIN;
+import static com.nika.ebook.api.constants.RoleConstants.ROLE_USER;
+import static com.nika.ebook.api.constants.RouteConstants.*;
+import static com.nika.ebook.api.constants.SwaggerConstant.PUBLIC_URLS;
+
 
 @Configuration
 @EnableWebSecurity
@@ -31,15 +36,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
     }
 
-    private static final String[] PUBLIC_URLS = {
-            "/v2/api-docs",
-            "/swagger-resources/**",
-            "/swagger-ui/**",
-            "/webjars/**",
-            "api/books/getBooks"
-
-    };
-
     @Override
     protected void configure(HttpSecurity http) throws Exception {
 
@@ -47,22 +43,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
                 .authorizeRequests()
-                        .antMatchers("/api/auth/**").permitAll()
-                        .antMatchers("/api/books/getBooks").permitAll()
-                        .antMatchers("/api/books/getBook/category/**").permitAll()
-                        .antMatchers("/api/books/getBook/**").permitAll()
+                        .antMatchers(ALL_AUTH_ROUTES).permitAll()
+                        .antMatchers(GET_ALL_BOOKS).permitAll()
+                        .antMatchers(ALL_GET_BOOKS_WITH_CATEGORY_ROUTES).permitAll()
+                        .antMatchers(ALL_GET_BOOK_ROUTES).permitAll()
                         .antMatchers(PUBLIC_URLS).permitAll()
-                        .antMatchers("/api/users").hasAnyAuthority("ROLE_ADMIN")
-                        .antMatchers("/api/users/books/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
-                        .antMatchers("/api/books").hasAnyAuthority("ROLE_ADMIN")
+                        .antMatchers(USERS_API).hasAnyAuthority(ROLE_ADMIN)
+                        .antMatchers(ALL_USERS_WITH_BOOKS_ROUTES).hasAnyAuthority(ROLE_USER, ROLE_ADMIN)
+                        .antMatchers(BOOKS_API).hasAnyAuthority(ROLE_ADMIN)
                         .anyRequest().authenticated();
-//        http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-//        http.authorizeRequests().antMatchers("/api/login/**").permitAll();
-//        http.authorizeRequests().antMatchers("/api/user/save").permitAll();
-//        http.authorizeRequests().antMatchers(PUBLIC_URLS).permitAll();
-//        http.authorizeRequests().antMatchers(GET, "/api/user/**").hasAnyAuthority("ROLE_USER");
-//        http.authorizeRequests().antMatchers(POST, "/api/user/save/**").hasAnyAuthority("ROLE_ADMIN");
-//        http.authorizeRequests().anyRequest().authenticated();
         http.addFilterBefore(authTokenFilter,UsernamePasswordAuthenticationFilter.class);
     }
 

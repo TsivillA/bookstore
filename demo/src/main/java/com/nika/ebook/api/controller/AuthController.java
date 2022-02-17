@@ -1,105 +1,73 @@
 package com.nika.ebook.api.controller;
 
-import com.nika.ebook.api.utility.JwtUtils;
+import com.nika.ebook.api.constants.SwaggerConstant;
 import com.nika.ebook.domain.MessageResponse;
-import com.nika.ebook.domain.Role.ERole;
-import com.nika.ebook.domain.Role.Role;
 import com.nika.ebook.domain.jwt.JwtResponse;
-import com.nika.ebook.domain.user.User;
 import com.nika.ebook.domain.user.UserLoginRequest;
 import com.nika.ebook.domain.user.UserRegisterRequest;
-import com.nika.ebook.persistance.repository.RoleRepository;
-import com.nika.ebook.persistance.repository.UserRepository;
-import com.nika.ebook.service.UserDetailsImpl;
+import com.nika.ebook.persistance.service.AuthService;
+import com.nika.ebook.persistance.service.UserService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Objects;
+
+import static com.nika.ebook.api.constants.AllowedOrigins.ALLOWED_ORIGIN;
+import static com.nika.ebook.api.constants.ResponseConstants.*;
+import static com.nika.ebook.api.constants.RouteConstants.*;
 
 @RestController
-@RequestMapping("/api/auth")
-@CrossOrigin(origins = "*", maxAge = 3600)
+@RequestMapping(AUTH_API)
+@CrossOrigin(origins = ALLOWED_ORIGIN, maxAge = 3600)
 @RequiredArgsConstructor
+@Api(tags = {SwaggerConstant.AUTH_TAG})
 public class AuthController {
-    private final AuthenticationManager authenticationManager;
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtils jwtUtils;
+    private final AuthService authService;
+    private final UserService userService;
 
-    @PostMapping("/signIn")
+    @ApiOperation(value = "Authenticate User", notes = "Authenticate user and generate jwt token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User has been successfully authenticated"),
+            @ApiResponse(responseCode = "400", description = RESPONSE_400),
+            @ApiResponse(responseCode = "404", description = RESPONSE_404),
+            @ApiResponse(responseCode = "500", description = RESPONSE_500),
+            @ApiResponse(responseCode = "403", description = RESPONSE_403),
+            @ApiResponse(responseCode = "401", description = RESPONSE_401),
+    })
+    @PostMapping(SIGN_IN)
     public ResponseEntity<?> authUser(@RequestBody UserLoginRequest loginRequest){
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateToken(authentication);
-        UserDetailsImpl userDetails = (UserDetailsImpl)authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(new JwtResponse(
-                jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles));
+        JwtResponse response = authService.loginUser(loginRequest);
+        if(Objects.isNull(response)){
+            return ResponseEntity.internalServerError().body("Could not authenticate user");
+        }
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/register")
+    @ApiOperation(value = "Register User", notes = "Register user and save to database")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User has been successfully registered"),
+            @ApiResponse(responseCode = "400", description = RESPONSE_400),
+            @ApiResponse(responseCode = "404", description = RESPONSE_404),
+            @ApiResponse(responseCode = "500", description = RESPONSE_500),
+            @ApiResponse(responseCode = "403", description = RESPONSE_403),
+            @ApiResponse(responseCode = "401", description = RESPONSE_401),
+    })
+    @PostMapping(REGISTER)
     public ResponseEntity<?> registerUser(@RequestBody UserRegisterRequest signUpRequest) {
-        if(userRepository.existsByUsername(signUpRequest.getUsername())){
+        if(userService.existsByUsername(signUpRequest.getUsername())){
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Username exists!"));
         }
-        if(userRepository.existsByEmail(signUpRequest.getEmail())){
+        if(userService.existsByEmail(signUpRequest.getEmail())){
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Email exists!"));
         }
-        User user = new User(signUpRequest.getUsername(), signUpRequest.getEmail(),
-                passwordEncoder.encode(signUpRequest.getPassword()));
-
-        Set<String> requestRoles = signUpRequest.getRoles();
-        Set<Role> roles = new HashSet<>();
-        if(requestRoles == null) {
-            Role role = roleRepository
-                    .findByName(ERole.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("Error: Role 'USER' Not Found!"));
-            roles.add(role);
-        }
-        else {
-            requestRoles.forEach(r -> {
-                switch (r) {
-                    case "admin":
-                        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                                .orElseThrow(() -> new RuntimeException("Error: Role 'ADMIN' Not Found!"));
-                        roles.add(adminRole);
-                        break;
-                    case "moder":
-                        Role moderRole = roleRepository.findByName(ERole.ROLE_MODERATOR)
-                                .orElseThrow(() -> new RuntimeException("Error: Role 'MODERATOR' Not Found!"));
-                        roles.add(moderRole);
-                        break;
-                    default:
-                        Role userRole = roleRepository
-                                .findByName(ERole.ROLE_USER)
-                                .orElseThrow(() -> new RuntimeException("Error: Role 'USER' Not Found!"));
-                        roles.add(userRole);
-                }
-            });
-        }
-        user.setRoles(roles);
-        userRepository.save(user);
+        authService.registerUser(signUpRequest);
         return ResponseEntity.ok(new MessageResponse("User CREATED"));
     }
 }

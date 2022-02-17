@@ -1,7 +1,7 @@
 package com.nika.ebook.persistance.service;
 
-import com.nika.ebook.domain.Category.Category;
 import com.nika.ebook.domain.book.Book;
+import com.nika.ebook.domain.book.BookCreateRequest;
 import com.nika.ebook.domain.book.BookEditRequest;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -11,9 +11,9 @@ import java.util.List;
 public interface BookService {
      void mapToBook(Book oldBook, BookEditRequest newBook);
      List<Book> findAll();
+     void createBook(BookCreateRequest bookRequest);
      void update(long id, BookEditRequest book);
      void delete(long id);
-     Book getById(Long id);
      void save(Book book);
      boolean existsByName(String name);
      Book getByName(String name);

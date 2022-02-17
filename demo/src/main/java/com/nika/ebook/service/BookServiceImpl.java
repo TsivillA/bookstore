@@ -3,10 +3,12 @@ package com.nika.ebook.service;
 import com.nika.ebook.domain.Category.Category;
 import com.nika.ebook.domain.Category.ECategory;
 import com.nika.ebook.domain.book.Book;
+import com.nika.ebook.domain.book.BookCreateRequest;
 import com.nika.ebook.domain.book.BookEditRequest;
 import com.nika.ebook.persistance.repository.BookRepository;
 import com.nika.ebook.persistance.repository.CategoryRepository;
 import com.nika.ebook.persistance.service.BookService;
+import com.nika.ebook.persistance.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -16,19 +18,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
 public class BookServiceImpl implements BookService {
-
     private final BookRepository bookRepository;
-    private final CategoryRepository categoryRepository;
-
+    private final CategoryService categoryService;
 
     @Override
     public List<Book> findAll() {
@@ -36,37 +33,46 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public void update(long id, BookEditRequest book) {
-        Book oldBook = bookRepository.getById(id);
-        if(Objects.isNull(oldBook)){
-            throw new NullPointerException("Product can not be null!");
-        }
-        mapToBook(oldBook, book);
+    public void createBook(BookCreateRequest bookRequest) {
+        Book book = new Book(bookRequest.getName(), bookRequest.getAuthor(), bookRequest.getDescription(),
+                bookRequest.getImageUrl(), bookRequest.getReadingUrl(), bookRequest.getPrice());
 
+        Set<String> requestCategory = bookRequest.getCategory();
+        Set<Category> categories = new HashSet<>();
+        requestCategory.forEach(r -> {
+            Category category = categoryService.findByRequestCategory(r);
+            categories.add(category);
+        });
+
+        book.setCategory(categories);
+        save(book);
+    }
+
+    @Override
+    public void update(long id, BookEditRequest book) {
+        Book oldBook = bookRepository.findById(id).orElseThrow(() -> new NullPointerException("Product can not be null!"));
+        mapToBook(oldBook, book);
         bookRepository.save(oldBook);
     }
 
     @Override
     public void delete(long id) {
-        Book book = bookRepository.getById(id);
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Cannot find book to delete"));
         book.getCategory().clear();
         bookRepository.delete(book);
     }
 
     @Override
-    public Book getById(Long id) {
-        return bookRepository.getById(id);
-    }
-
-    @Override
     public void save(Book book) {
+        if(Objects.isNull(book))
+            throw new NullPointerException("Book object is null!");
         bookRepository.save(book);
     }
 
     @Override
     public boolean existsByName(String name) {
-        if (bookRepository.existsByName(name)) return true;
-        else return false;
+        return bookRepository.existsByName(name);
     }
 
     @Override
@@ -100,16 +106,12 @@ public class BookServiceImpl implements BookService {
     @Override
     public List<Book> getBookByCategory(String category) {
         List<Book> books = new ArrayList<>();
-        category = category.toUpperCase();
-        for (Book book:
-                bookRepository.findAll()) {
-            for (Category cat:
-                 book.getCategory()) {
-                if (cat.getName().toString().equals(category)) books.add(book);
+        for (Book book: bookRepository.findAll()) {
+            for (Category cat: book.getCategory()) {
+                if(Objects.equals(cat.getName().toString(),category.toUpperCase()))
+                    books.add(book);
             }
         }
         return books;
-
-
     }
 }

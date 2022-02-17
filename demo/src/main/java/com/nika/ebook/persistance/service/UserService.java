@@ -10,11 +10,12 @@ import java.util.Set;
 public interface UserService {
      void mapToUser(User oldUser, UserEditRequst newUser);
      List<User> findAll();
+     void save(User user);
      void update(long id, UserEditRequst user);
      void delete(long id);
      User getByUsername(String username);
      void addBooksToUser(Set<Book> books, String username);
      Set<Book> getUserBooks(String username);
-
-
+     Boolean existsByUsername(String username);
+     Boolean existsByEmail(String email);
 }

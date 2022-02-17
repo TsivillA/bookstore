@@ -19,11 +19,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.nika.ebook.api.constants.AllowedOrigins.ALLOWED_ORIGIN;
+import static com.nika.ebook.api.constants.ResponseConstants.*;
+import static com.nika.ebook.api.constants.RouteConstants.*;
 import static com.nika.ebook.api.constants.SwaggerConstant.*;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:4200/", allowCredentials = "true")
-@RequestMapping("/api")
+@CrossOrigin(origins = ALLOWED_ORIGIN, allowCredentials = "true")
+@RequestMapping(USERS_API)
 @RequiredArgsConstructor
 @Api(tags = {SwaggerConstant.USER_TAG})
 public class UserController {
@@ -37,7 +40,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/users")
+    @GetMapping()
     public ResponseEntity<List<User>> getUsers() {
         return ResponseEntity.ok().body(userService.findAll());
     }
@@ -50,7 +53,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/users/{username}")
+    @GetMapping(GET_BY_USERNAME)
     public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
         User user = userService.getByUsername(username);
         return new ResponseEntity<>(user, HttpStatus.OK);
@@ -64,7 +67,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @PutMapping("/users/update/{id}")
+    @PutMapping(UPDATE_BY_ID)
     public ResponseEntity<?> update(@PathVariable long id, @RequestBody UserEditRequst user) {
         userService.update(id, user);
         return new ResponseEntity<>(null, HttpStatus.NO_CONTENT);
@@ -78,7 +81,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @DeleteMapping("/users/delete/{id}")
+    @DeleteMapping(DELETE_BY_ID)
     public ResponseEntity<?> delete(@PathVariable long id) {
         userService.delete(id);
         return new ResponseEntity<>(null, HttpStatus.NO_CONTENT);
@@ -92,7 +95,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @GetMapping("/users/books/{username}")
+    @GetMapping(USERS_BOOKS_BY_USERNAME)
     public ResponseEntity<?> getUserBooks(@PathVariable String username) {
         Set<Book> books = userService.getByUsername(username).getBooks();
         return new ResponseEntity<>(books, HttpStatus.OK);
@@ -106,7 +109,7 @@ public class UserController {
             @ApiResponse(responseCode = "403", description = RESPONSE_403),
             @ApiResponse(responseCode = "401", description = RESPONSE_401),
     })
-    @PostMapping("/users/books/{username}")
+    @PostMapping(USERS_BOOKS_BY_USERNAME)
     public ResponseEntity<?> addBooksToUser(@PathVariable String username, @RequestBody Set<Book> books) {
         userService.addBooksToUser(books, username);
         return new ResponseEntity<>(null, HttpStatus.NO_CONTENT);
